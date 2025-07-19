@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>فاتورة</title>
+  <style>
+    /* عام */
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 10px;
+      line-height: 1.3;
+      background: none;
+    }
+    /* قلصنا العرض إلى 500px كحد أقصى */
+    .invoice-box {
+      width: 100%;
+      max-width: 500px;
+      margin: auto;
+      padding: 20px;
+    }
+    .invoice-header {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .invoice-header h1 {
+      font-size: 20px;
+      margin: 0;
+      text-transform: uppercase;
+      text-shadow:
+        1px 1px #ccc,
+        2px 2px #bbb,
+        3px 3px #aaa;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 4px;
+      text-align: center;
+    }
+    th {
+      background: #f0f0f0;
+    }
+    input[type="text"],
+    input[type="number"],
+    input[type="datetime-local"] {
+      width: 100%;
+      padding: 2px;
+      font-size: 12px;
+      box-sizing: border-box;
+      text-align: center;
+      border: 1px solid #ccc;
+    }
+    .add-item, .print-btn {
+      display: inline-block;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      margin-right: 5px;
+    }
+    .print-btn { background: #007bff; }
+
+    /* استجابة الموبايل */
+    @media screen and (max-width: 600px) {
+      .invoice-header h1 { font-size: 18px; }
+      table, th, td, input { font-size: 10px; }
+      .add-item, .print-btn {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 8px;
+      }
+    }
+
+    /* طباعة A5 بدون قص */
+    @page {
+      size: A5 portrait;
+      margin: 0;
+    }
+    @media print {
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+      .add-item, .print-btn {
+        display: none;
+      }
+      .invoice-box {
+        padding: 5mm;
+      }
+      table {
+        font-size: 10px;
+        page-break-inside: avoid;
+      }
+      thead {
+        display: table-header-group;
+      }
+      tr {
+        page-break-inside: avoid;
+      }
+      th, td {
+        padding: 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-box">
+    <div class="invoice-header">
+      <h1>مستودع النسيم للأدوية</h1>
+    </div>
+
+    <table>
+      <tr>
+        <td>رقم الفاتورة</td>
+        <td><input type="text" id="invoice-number" readonly /></td>
+        <td>التاريخ والوقت</td>
+        <td><input type="datetime-local" id="invoice-datetime" readonly /></td>
+      </tr>
+      <tr>
+        <td>اسم العميل</td>
+        <td colspan="3"><input type="text" id="customer-name" placeholder="أدخل اسم العميل" /></td>
+      </tr>
+    </table>
+
+    <button class="add-item" onclick="addItemRow()">＋ إضافة صنف</button>
+    <button class="print-btn" onclick="window.print()">طباعة</button>
+
+    <table id="items-table">
+      <thead>
+        <tr>
+          <th>الصنف</th>
+          <th>الكمية</th>
+          <th>السعر للوحدة</th>
+          <th>الإجمالي</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="text" placeholder="أدخل اسم الصنف" /></td>
+          <td><input type="number" min="0" value="0" oninput="recalculate()" /></td>
+          <td><input type="number" min="0" step="0.01" value="0.00" oninput="recalculate()" /></td>
+          <td><input type="number" min="0" step="0.01" value="0.00" readonly /></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <table>
+        <tr>
+          <td>الإجمالي الكلي</td>
+          <td><input type="number" id="total" readonly /></td>
+        </tr>
+        <tr>
+          <td>المبلغ المستلم</td>
+          <td><input type="number" id="received" step="0.01" oninput="recalculate()" /></td>
+        </tr>
+        <tr>
+          <td>المبلغ المتبقي</td>
+          <td><input type="number" id="remaining" readonly /></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function pad(n){ return n.toString().padStart(2,'0'); }
+    function generateInvoiceInfo(){
+      const now = new Date(),
+            y = now.getFullYear(), m = pad(now.getMonth()+1), d = pad(now.getDate()),
+            hh = pad(now.getHours()), mm = pad(now.getMinutes());
+      document.getElementById('invoice-number').value = `INV-${y}${m}${d}${hh}${mm}${pad(now.getSeconds())}`;
+      document.getElementById('invoice-datetime').value = `${y}-${m}-${d}T${hh}:${mm}`;
+    }
+    function addItemRow(){
+      const tbody = document.querySelector('#items-table tbody'),
+            row = document.createElement('tr');
+      row.innerHTML = `
+        <td><input type="text" placeholder="أدخل اسم الصنف"/></td>
+        <td><input type="number" min="0" value="0" oninput="recalculate()"/></td>
+        <td><input type="number" min="0" step="0.01" value="0.00" oninput="recalculate()"/></td>
+        <td><input type="number" min="0" step="0.01" value="0.00" readonly/></td>
+      `;
+      tbody.appendChild(row);
+    }
+    function recalculate(){
+      let sum = 0;
+      document.querySelectorAll('#items-table tbody tr').forEach(r => {
+        const q = parseFloat(r.cells[1].querySelector('input').value) || 0;
+        const p = parseFloat(r.cells[2].querySelector('input').value) || 0;
+        const line = q * p;
+        r.cells[3].querySelector('input').value = line.toFixed(2);
+        sum += line;
+      });
+      document.getElementById('total').value = sum.toFixed(2);
+      const received = parseFloat(document.getElementById('received').value) || 0;
+      document.getElementById('remaining').value = (sum - received).toFixed(2);
+    }
+    window.onload = () => {
+      generateInvoiceInfo();
+      recalculate();
+    };
+  </script>
+</body>
+</html>
